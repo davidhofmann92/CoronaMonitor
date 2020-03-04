@@ -1,5 +1,5 @@
 ############################################################
-#### Corona Virus Analysis
+#### Corona Virus Shiny App
 ############################################################
 # Clear R's brain
 rm(list = ls())
@@ -157,10 +157,6 @@ ui <- dashboardPage(
         fluidRow(
           column(12, align = "center"
             , h1("Data")
-            , br()
-            , helpText("Data was sourced from the", a("John Hopkins University",
-            href = "https://github.com/CSSEGISandData/COVID-19", target =
-            "_blank"))
           )
         ),
 
@@ -169,6 +165,23 @@ ui <- dashboardPage(
           column(3),
           column(6, align = "center", DT::dataTableOutput("confirmedCases")),
           column(3)
+        ),
+        
+        # Github link to the shiny app
+        fluidRow(
+          column(12, align = "center",
+            h4(
+                "Data was sourced from the"
+              , a("John Hopkins University. "
+                  , href = "https://github.com/CSSEGISandData/COVID-19"
+                  , target = "_blank")
+              , "Click "
+              , a("here"
+                  , href = "https://github.com/davidhofmann92/CoronaMonitor"
+                  , target = "_blank")
+              , "to get the r code for the shiny app."
+            )
+          )
         )
       ),
 
