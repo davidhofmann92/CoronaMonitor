@@ -17,7 +17,6 @@ library(RCurl)
 library(DT)
 library(countrycode)
 library(leaflet)
-library(scales)
 
 ############################################################
 #### Data Handling
@@ -34,6 +33,7 @@ dat <- links %>%
   lapply(., read_csv) %>%
   bind_rows(., .id = "Case") %>%
   gather(., key = "Date", value = "ConfirmedCases", 6:ncol(.)) %>%
+  mutate(., ConfirmedCases = replace_na(ConfirmedCases, 0)) %>%
   rename(., Country = "Country/Region", Region = "Province/State") %>%
   mutate(., CountryRegion = paste(Country, Region, sep = ", \n")) %>%
   mutate(., CountryRegion = gsub(", \nNA", "", CountryRegion)) %>%
@@ -166,7 +166,7 @@ ui <- dashboardPage(
           column(6, align = "center", DT::dataTableOutput("confirmedCases")),
           column(3)
         ),
-        
+
         # Github link to the shiny app
         fluidRow(
           column(12, align = "center",
@@ -192,7 +192,7 @@ ui <- dashboardPage(
         fluidRow(
           column(12, align = "center", h1("Cases Worldwide"))
           ),
-        
+
         # Option to switch to log scale
         fluidRow(
           column(12, align = "center", checkboxInput(
@@ -211,7 +211,7 @@ ui <- dashboardPage(
         fluidRow(
           column(12, align = "center", h1("Cases by Country"))
           ),
-        
+
         # Country selector
         fluidRow(
           column(12, align = "center", selectInput(
@@ -220,7 +220,7 @@ ui <- dashboardPage(
             , choices   = as.list(sort(unique(dat$Country)))
             , selected  = "Mainland China"))
         ),
-        
+
         # Option to switch to log scale
         fluidRow(
           column(12, align = "center", checkboxInput(
@@ -243,10 +243,10 @@ ui <- dashboardPage(
 #### Server
 ############################################################
 server <- function(input, output){
-  
+
   # Subset data according to user input and return reactive data
   circles <- reactive({
-    
+
     # Subset to the desired data
     circles <- subset(dat
       , Date == input$selectedDate
@@ -266,7 +266,7 @@ server <- function(input, output){
 
     # Join the information to the circles
     circles@data <- left_join(circles@data, information, by = "CountryRegion")
-    
+
     # Add an Id column
     circles$Id <- 1:nrow(circles)
 
@@ -279,7 +279,7 @@ server <- function(input, output){
       , Deaths
       , Recoveries
     )
-    
+
     # Return the circles
     return(circles)
   })
@@ -306,9 +306,15 @@ server <- function(input, output){
         , lng2 = xmax(extent(dat))
         , lat1 = ymin(extent(dat))
         , lat2 = ymax(extent(dat))
+      ) %>%
+      setMaxBounds(
+         lng1 = - 180
+       , lng2 = 180
+       , lat1 = -90
+       , lat2 = 90
       )
   })
-  
+
   # Add shapes, depending on user input
   observe({
 
@@ -348,25 +354,25 @@ server <- function(input, output){
         )
       )
   })
-  
+
   # Keep track of previously selected circles (create a new reactive value)
   prev_s <- reactiveVal()
-  
+
   # Highlight selected circles
   observeEvent(input$confirmedCases_rows_selected, {
-    
+
     # First we need to check which row is selected
     s <- input$confirmedCases_rows_selected
-    
+
     # Then we subset the data accordingly
     selectedCircle <- circles()[s, ]
-    
+
     # Create proxy
     proxy <- leafletProxy("map")
-    
+
     # Print the selected circle
     print(selectedCircle)
-    
+
     # Add the circle of the selected row to the plot
     proxy %>%
       addCircles(
@@ -398,17 +404,17 @@ server <- function(input, output){
         , lat = coordinates(selectedCircle)[, "Lat"] %>% as.vector()
         , zoom = 3
       )
-    
+
     # If there were previous selected markers, remove them
     if (!is.null(prev_s())){
       proxy %>%
         removeShape(layerId = as.character(prev_s()$Id))
     }
-    
+
     # Update the previous selection holder
     prev_s(selectedCircle)
   })
-  
+
   # When animating the slider the depicted data table will refresh every
   # iteration and cause a flickering. To prevent this, we include a debounce
   # Which will prevent the data from updating until the animation settled. Since
@@ -422,7 +428,7 @@ server <- function(input, output){
       select(., -c(Id, Width)) %>%
       datatable(., selection = "single", options = list(stateSave = TRUE))
   }, digits = 0)
-  
+
   # Plot the time series data worldwide
   output$worldwidePlot <- renderPlot({
     p <-dat@data %>%
